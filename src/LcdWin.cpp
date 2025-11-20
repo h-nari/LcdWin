@@ -1,0 +1,171 @@
+#include "LcdMenu.h"
+
+LcdWin::LcdWin()
+{
+  m_x = m_y = 0;
+  m_w = 320;
+  m_h = 240;
+
+  m_fg = Humblesoft_ILI9341::rgb("WHITE");
+  m_bg = Humblesoft_ILI9341::rgb("BLACK");
+
+  m_pNext = NULL;
+  m_lButton = NULL;
+
+  m_textSize = 1;
+  m_pFontx   = NULL;
+
+  m_pMenu = NULL;
+}
+
+bool LcdWin::isHit(uint16_t x, uint16_t y)
+{
+  return x >= m_x && x < m_x + m_w && y >= m_y && y < m_y + m_h;
+}
+
+void LcdWin::addButton(LcdButton *btn)
+{
+  LcdButton *p,*p0=NULL;
+  
+  for(p=m_lButton; p; p0=p, p=p->m_pNext);
+  if(p0) p0->m_pNext = btn;
+  else    m_lButton = btn;
+  btn->m_pNext = NULL;
+}
+
+void LcdWin::removeButton()
+{
+  m_lButton = NULL;
+}
+
+void LcdWin::drawButton()
+{
+  m_pLcd->setTextSize(m_textSize);
+  for(LcdButton *p = m_lButton; p; p=p->m_pNext)
+    p->draw(m_pLcd, m_fg, m_bg, m_fg);
+}
+
+
+void LcdWin::drawChangedButton()
+{
+  m_pLcd->setTextSize(m_textSize);
+  for(LcdButton *p = m_lButton; p; p=p->m_pNext)
+    p->drawChanged(m_pLcd, m_fg, m_bg, m_fg);
+}
+
+void LcdWin::resetButtonSelected()
+{
+  for(LcdButton *p = m_lButton; p; p=p->m_pNext)
+    p->m_selected = false;
+}
+
+bool LcdWin::setButtonSelected(uint16_t x, uint16_t y)
+{
+  bool b = false;
+  for(LcdButton *p = m_lButton; p; p=p->m_pNext)
+    b = b || p->setSelected(x,y);
+  return b;
+}
+
+void LcdWin::adjustButtonSize()
+{
+  m_pLcd->setTextSize(m_textSize);
+  m_pLcd->setFont(m_pFontx);
+  for(LcdButton *p = m_lButton;p; p=p->m_pNext){
+    p->adjustSize(m_pLcd);
+  }
+}
+
+void LcdWin::setButtonPosition()
+{
+  int w = 0,n=0,s,x,y;
+  LcdButton *p;
+
+  if(!m_lButton) return;
+  for(p = m_lButton; p; p=p->m_pNext){
+    w += p->m_w;
+    n++;
+  }
+  s = (m_w - w)/(n+1);
+  x = m_x + s;
+  y = m_y + m_h - m_lButton->m_h * 3 / 2;
+  for(p = m_lButton; p; p=p->m_pNext){
+    p->m_x = x;
+    p->m_y = y;
+    x += p->m_w + s;
+  }
+}
+
+void LcdWin::placeButtonTop(LcdButton *pBtn, const LcdButton *pPrev)
+{
+  if(pPrev){
+    pBtn->m_x = pPrev->m_x + pPrev->m_w + 2;
+    pBtn->m_y = pPrev->m_y;
+  } else {
+    pBtn->m_x = 0;
+    pBtn->m_y = 0;
+  }
+}
+
+void LcdWin::placeButtonBottom(LcdButton *pBtn, const LcdButton *pPrev)
+{
+  if(pPrev){
+    pBtn->m_x = pPrev->m_x + pPrev->m_w + 2;
+    pBtn->m_y = pPrev->m_y;
+  } else {
+    pBtn->m_x = 0;
+    pBtn->m_y = m_pLcd->height() - pBtn->m_h;
+  }
+}
+
+bool LcdWin::getButtonValue(int *pVal)
+{
+  for(LcdButton *p = m_lButton; p; p=p->m_pNext){
+    if(p->m_selected) {
+      if(pVal) *pVal = p->m_value;
+      return true;
+    }
+  }
+  return false;
+}
+
+bool LcdWin::tp_pressed(int16_t x, int16_t y)
+{
+  resetButtonSelected();
+  if(!setButtonSelected(x,y))
+    return false;
+  drawChangedButton();
+  return true;
+}
+
+bool LcdWin::tp_drag(int16_t x, int16_t y)
+{
+  if(!setButtonSelected(x,y))
+    return false;
+  drawChangedButton();
+  return true;
+}
+
+bool LcdWin::tp_released(int16_t x, int16_t y)
+{
+  if(m_pMenu && m_root){
+    m_pMenu->popup(m_root, x, y);
+    return true;
+  }
+  return false;
+}
+
+void LcdWin::clear()
+{
+  m_pLcd->fillScreen(m_bg);
+  setGC();
+  m_pLcd->setCursor(0,0);
+}
+
+void LcdWin::setGC()
+{
+  m_pLcd->setTextColor(m_fg,m_bg);
+  m_pLcd->setTextSize(m_textSize);
+  m_pLcd->setFont(m_pFontx);
+}
+
